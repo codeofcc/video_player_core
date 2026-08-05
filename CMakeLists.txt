@@ -141,6 +141,11 @@ file(GLOB_RECURSE SOURCES
 add_library(${PROJECT_NAME} STATIC ${SOURCES})
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
+
+target_include_directories(${PROJECT_NAME} PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+
 # ── 平台相关配置 ──
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 
@@ -167,7 +172,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     find_package(FFMPEG MODULE REQUIRED)
     list(APPEND INCLUDE_DIRS ${FFMPEG_INCLUDE_DIRS})
 
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${FFMPEG_LIBRARIES})
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${FFMPEG_LIBRARIES})
 
 
 
@@ -324,7 +329,7 @@ endif()
 
 
 
-target_include_directories(${PROJECT_NAME} PRIVATE
+target_include_directories(${PROJECT_NAME} PUBLIC
     ${INCLUDE_DIRS}
 )
 
@@ -334,6 +339,6 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 target_include_directories(${PROJECT_NAME} INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBRARIES})
 
 
