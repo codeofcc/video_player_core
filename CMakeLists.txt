@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 set(PROJECT_NAME "video_player_core")
 project(${PROJECT_NAME} LANGUAGES CXX C ASM)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
@@ -142,8 +142,13 @@ add_library(${PROJECT_NAME} STATIC ${SOURCES})
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 
-target_include_directories(${PROJECT_NAME} PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+
+# ✅ 添加模块文件,导出的接口
+target_sources(${PROJECT_NAME}
+    PUBLIC
+    FILE_SET CXX_MODULES
+    FILES
+        "include/video_player_core.cppm"   # ✅ 更新为新的文件名
 )
 
 # ── 平台相关配置 ──
@@ -172,18 +177,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     find_package(FFMPEG MODULE REQUIRED)
     list(APPEND INCLUDE_DIRS ${FFMPEG_INCLUDE_DIRS})
 
-    target_link_libraries(${PROJECT_NAME} PUBLIC ${FFMPEG_LIBRARIES})
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${FFMPEG_LIBRARIES})
 
 
 
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 
 
-
     if(NOT EXISTS "${FFMPEG_INSTALL_DIR}/lib/libavcodec.a")
 
         message(STATUS "FFmpeg configuration 3: CMAKE_C_COMPILER=${CMAKE_C_COMPILER} CMAKE_C_COMPILER_TARGET=${CMAKE_C_COMPILER_TARGET} CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} CMAKE_CXX_COMPILER_TARGET=${CMAKE_CXX_COMPILER_TARGET} CMAKE_SYSTEM_NAME =${CMAKE_SYSTEM_NAME}, CPU=${CMAKE_SYSTEM_PROCESSOR},")
-
 
         include(ProcessorCount)
         ProcessorCount(NPROC)
@@ -326,19 +329,19 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 endif()
 
 
-
-
-
-target_include_directories(${PROJECT_NAME} PUBLIC
+target_include_directories(${PROJECT_NAME} PRIVATE
     ${INCLUDE_DIRS}
 )
-
+target_include_directories(${PROJECT_NAME} PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_VISIBILITY_PRESET hidden)
 
-target_include_directories(${PROJECT_NAME} INTERFACE
-    "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBRARIES})
+
+
+
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBRARIES})
 
 
