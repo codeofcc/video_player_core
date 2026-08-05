@@ -44,14 +44,14 @@ set(FFI_PACKAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/_deps")
 
 # ── 下载 SDL2 ──
 git_clone_if_needed(
-    "https://ghproxy.net/https://github.com/libsdl-org/SDL.git"
+    "https://github.com/libsdl-org/SDL.git"
     "release-2.30.12"
     "${FFI_PACKAGE_DIR}/SDL2"
 )
 
 # ── 下载 libgo ──
 git_clone_if_needed(
-    "https://ghproxy.net/https://github.com/codeofcc/libgo.git"
+    "https://github.com/codeofcc/libgo.git"
     "master"
     "${FFI_PACKAGE_DIR}/libgo"
 )
