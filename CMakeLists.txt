@@ -124,20 +124,27 @@ FetchContent_MakeAvailable(libgo)
 
 
 # include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../ffi/include")
-file(GLOB_RECURSE SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
-)
+
 
 list(APPEND LIBRARIES
     SDL2::SDL2
     libgo::libgo
 )
 
+
+
+file(GLOB_RECURSE SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+)
+
+add_library(${PROJECT_NAME} STATIC ${SOURCES})
+add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
 # ── 平台相关配置 ──
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 
-    set(VCPKG_DIR "${CMAKE_BINARY_DIR}/vcpkg")
+    set(VCPKG_DIR "${FFI_PACKAGE_DIR}/vcpkg")
     set(FFMPEG_VERSION_TAG "2026.06.24") # 👈 指定目标版本 8.1.2 //查看方式：在vcpkg的git查看ffmpeg包的版本对应的tag
     find_package(Git REQUIRED)
 
@@ -160,9 +167,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     find_package(FFMPEG MODULE REQUIRED)
     list(APPEND INCLUDE_DIRS ${FFMPEG_INCLUDE_DIRS})
 
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${FFMPEG_LIBRARIES})
+
+
+
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-
-
 
 
 
@@ -290,6 +299,9 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
             "${FFMPEG_INSTALL_DIR}/lib/libswscale.a"
             "${FFMPEG_INSTALL_DIR}/lib/libswresample.a"
         )
+
+        add_dependencies(${PROJECT_NAME} ffmpeg)
+
     endif()
     list(APPEND INCLUDE_DIRS
         ${FFMPEG_INSTALL_DIR}/include
@@ -308,12 +320,9 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     message(STATUS "macOS build")
 endif()
 
-add_library(${PROJECT_NAME} STATIC ${SOURCES})
-add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
-if(NOT EXISTS "${FFMPEG_INSTALL_DIR}/lib/libavcodec.a")
-    add_dependencies(${PROJECT_NAME} ffmpeg)
-endif()
+
+
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${INCLUDE_DIRS}
