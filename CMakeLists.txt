@@ -162,26 +162,61 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 
-    include(ProcessorCount)
-    ProcessorCount(NPROC)
-    if(NPROC EQUAL 0)
-        set(NPROC 1)
-    endif()
 
-    # 路径变量
-    set(FFMPEG_INSTALL_DIR "${CMAKE_BINARY_DIR}/_deps/ffmpeg-build/install")
-    set(FFMPEG_SOURCE_DIR "${FFI_PACKAGE_DIR}/ffmpeg")
-
-    # ── 下载 FFmpeg ──
-    git_clone_if_needed(
-        "https://git.ffmpeg.org/ffmpeg.git"
-        "n8.1.2"
-        "${FFMPEG_SOURCE_DIR}"
-    )
 
 
 
     if(NOT EXISTS "${FFMPEG_INSTALL_DIR}/lib/libavcodec.a")
+
+        message(STATUS "FFmpeg configuration 3: CMAKE_C_COMPILER=${CMAKE_C_COMPILER} CMAKE_C_COMPILER_TARGET=${CMAKE_C_COMPILER_TARGET} CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} CMAKE_CXX_COMPILER_TARGET=${CMAKE_CXX_COMPILER_TARGET} CMAKE_SYSTEM_NAME =${CMAKE_SYSTEM_NAME}, CPU=${CMAKE_SYSTEM_PROCESSOR},")
+
+
+        include(ProcessorCount)
+        ProcessorCount(NPROC)
+        if(NPROC EQUAL 0)
+            set(NPROC 1)
+        endif()
+
+        # 路径变量
+        set(FFMPEG_INSTALL_DIR "${CMAKE_BINARY_DIR}/_deps/ffmpeg-build/install")
+        set(FFMPEG_SOURCE_DIR "${FFI_PACKAGE_DIR}/ffmpeg")
+
+        # ── 下载 FFmpeg ──
+        git_clone_if_needed(
+            "https://git.ffmpeg.org/ffmpeg.git"
+            "n8.1.2"
+            "${FFMPEG_SOURCE_DIR}"
+        )
+
+
+        if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL CMAKE_SYSTEM_PROCESSOR)
+            message(STATUS "[OS] Target OS matches host: ${CMAKE_SYSTEM_NAME}")
+            set(FFMPEG_CROSS_COMPILE "--disable-cross-compile")
+        else()
+            set(FFMPEG_CROSS_COMPILE "--enable-cross-compile")
+            set(FFMPEG_COMPILER_FLAGS "--target=${CMAKE_C_COMPILER_TARGET}")
+            set(FFMPEG_CROSS_PREFIX "${CMAKE_C_COMPILER_TARGET}-")
+            message(STATUS "[OS] Target OS differs from host: ${CMAKE_HOST_SYSTEM_NAME} -> ${CMAKE_SYSTEM_NAME}")
+            if(NOT FFMPEG_TARGET_ARCH AND CMAKE_C_COMPILER_TARGET)
+                string(REGEX MATCH "^([^-]+)" TRIPLE_ARCH "${CMAKE_C_COMPILER_TARGET}")
+                if(TRIPLE_ARCH MATCHES "aarch64|arm64")
+                    set(FFMPEG_TARGET_ARCH "arm64")
+                    set(IS_ARM64 TRUE)
+                elseif(TRIPLE_ARCH MATCHES "^arm")
+                    set(FFMPEG_TARGET_ARCH "arm")
+                    set(IS_ARM TRUE)
+                elseif(TRIPLE_ARCH MATCHES "x86_64|amd64")
+                    set(FFMPEG_TARGET_ARCH "x86_64")
+                    set(IS_X86_64 TRUE)
+                elseif(TRIPLE_ARCH MATCHES "i[3-6]86")
+                    set(FFMPEG_TARGET_ARCH "x86")
+                    set(IS_X86 TRUE)
+                else()
+                    set(FFMPEG_TARGET_ARCH "${TRIPLE_ARCH}")
+                endif()
+            endif()
+        endif()
+
         # 下载并构建
         include(ExternalProject)
         ExternalProject_Add(ffmpeg
@@ -198,12 +233,14 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
             #${CMAKE_COMMAND} -E echo "FFmpeg configure skipped (using pre-built libraries)"
             ${CMAKE_COMMAND} -E env CC=${CMAKE_C_COMPILER}
             C_INCLUDE_PATH=$ENV{CPLUS_INCLUDE_PATH}
-            # ASFLAGS=-fPIC
             ${FFMPEG_SOURCE_DIR}/configure
             --prefix=${FFMPEG_INSTALL_DIR}
-            --cc=${CMAKE_C_COMPILER}
-            --arch=x86_64
-            --cpu=x86-64
+            "--cc=${CMAKE_C_COMPILER} ${FFMPEG_COMPILER_FLAGS}"
+            --arch=${FFMPEG_TARGET_ARCH}
+            # --cpu=${FFMPEG_TARGET_ARCH}
+            --cross-prefix=${FFMPEG_CROSS_PREFIX}
+            ${FFMPEG_CROSS_COMPILE}
+            --sysroot=${CMAKE_SYSROOT}
             --target-os=linux
             # === 核心策略 ===
             --disable-everything
