@@ -141,7 +141,7 @@ file(GLOB_RECURSE SOURCES
 
 add_library(${PROJECT_NAME} STATIC ${SOURCES})
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
-
+set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 
 # ✅ 添加模块文件,导出的接口
