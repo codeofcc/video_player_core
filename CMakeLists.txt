@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 set(PROJECT_NAME "video_player_core")
 project(${PROJECT_NAME} LANGUAGES CXX C ASM)
 
+set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -148,7 +149,7 @@ target_sources(${PROJECT_NAME}
     PUBLIC
     FILE_SET CXX_MODULES
     FILES
-        "include/video_player_core.cppm"   # ✅ 更新为新的文件名
+    "include/video_player_core.cppm" # ✅ 更新为新的文件名
 )
 
 # ── 平台相关配置 ──
