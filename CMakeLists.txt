@@ -79,7 +79,7 @@ set(SDL_HIDAPI OFF CACHE BOOL "" FORCE)
 
 # 关闭其他不需要的模块
 foreach(_sdl_mod
-    EVENTS
+    # EVENTS
     FILE
     MISC
     TIMERS
