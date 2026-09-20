@@ -76,6 +76,7 @@ set(SDL_IME OFF CACHE BOOL "" FORCE) # 禁用输入法框架 (IBus/Fcitx)
 set(SDL_IBUS OFF CACHE BOOL "" FORCE) # 显式禁用 IBus
 set(SDL_FCITX OFF CACHE BOOL "" FORCE) # 显式禁用 Fcitx
 set(SDL_HIDAPI OFF CACHE BOOL "" FORCE)
+# set(SDL_JOYSTICK OFF CACHE BOOL "" FORCE)
 
 # 关闭其他不需要的模块
 foreach(_sdl_mod
@@ -84,7 +85,7 @@ foreach(_sdl_mod
     MISC
     TIMERS
     ATOMIC
-    VIDEO RENDER JOYSTICK HAPTIC SENSOR TOUCH POWER
+    VIDEO RENDER HAPTIC SENSOR TOUCH POWER #JOYSTICK
     DIRECTX OPENGLES VULKAN LOADSO CPUINFO
     VIRTUAL_JOYSTICK RENDER_D3D LIBUDEV HIDAPI_JOYSTICK
     FILESYSTEM LOCALE
@@ -105,11 +106,11 @@ foreach(_sdl_mod
     set(SDL_${_sdl_mod} OFF CACHE BOOL "" FORCE)
 endforeach()
 
-FetchContent_Declare(
-    SDL2
-    SOURCE_DIR "${FFI_PACKAGE_DIR}/SDL2"
-)
-FetchContent_MakeAvailable(SDL2)
+# FetchContent_Declare(
+#     SDL2
+#     SOURCE_DIR "${FFI_PACKAGE_DIR}/SDL2"
+# )
+# FetchContent_MakeAvailable(SDL2)
 
 
 # 在 MakeAvailable 之前设置 libgo 的选项（覆盖默认值）
@@ -128,7 +129,7 @@ FetchContent_MakeAvailable(libgo)
 
 
 list(APPEND LIBRARIES
-    SDL2::SDL2
+    # SDL2::SDL2
     libgo::libgo
 )
 
@@ -143,6 +144,11 @@ add_library(${PROJECT_NAME} STATIC ${SOURCES})
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
+target_compile_options(${PROJECT_NAME} PRIVATE -pthread)
+find_package(Threads REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads
+    android
+)
 
 # ✅ 添加模块文件,导出的接口
 target_sources(${PROJECT_NAME}
@@ -152,11 +158,37 @@ target_sources(${PROJECT_NAME}
     "include/video_player_core.cppm" # ✅ 更新为新的文件名
 )
 
+
+
+message(STATUS "CMAKE_HOST_SYSTEM_NAME:${CMAKE_HOST_SYSTEM_NAME}")
+
 # ── 平台相关配置 ──
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows" AND (CMAKE_SYSTEM_NAME STREQUAL "Windows" OR CMAKE_SYSTEM_NAME STREQUAL "Android"))
+
+
+    #    "-DCMAKE_SYSTEM_NAME=Android" ^
+    # [        ]       "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON" ^
+    # [        ]       "-DCMAKE_SYSTEM_VERSION=24" ^
+    # [        ]       "-DANDROID_PLATFORM=android-24" ^
+    # [        ]       "-DANDROID_ABI=arm64-v8a" ^
+    # [        ]       "-DCMAKE_ANDROID_ARCH_ABI=arm64-v8a" ^
+message(STATUS "ANDROID_ABI=${ANDROID_ABI}")
+    if(ANDROID_ABI STREQUAL "arm64-v8a")
+        set(VCPKG_TARGET_TRIPLET "arm64-android")
+    elseif(ANDROID_ABI STREQUAL "armeabi-v7a")
+        set(VCPKG_TARGET_TRIPLET "arm-neon-android")
+    elseif(ANDROID_ABI STREQUAL "x86")
+        set(VCPKG_TARGET_TRIPLET "x86-android")
+    elseif(ANDROID_ABI STREQUAL "x86_64")
+        set(VCPKG_TARGET_TRIPLET "x64-android")
+    else()
+        set(VCPKG_TARGET_TRIPLET "x64-windows-static-md")
+    endif()
+
+    # message("VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}")
 
     set(VCPKG_DIR "${FFI_PACKAGE_DIR}/vcpkg")
-    set(FFMPEG_VERSION_TAG "2026.06.24") # 👈 指定目标版本 8.1.2 //查看方式：在vcpkg的git查看ffmpeg包的版本对应的tag
+    set(FFMPEG_VERSION_TAG "2026.07.29") # 👈 指定目标版本 8.1.2 //查看方式：在vcpkg的git查看ffmpeg包的版本对应的tag
     find_package(Git REQUIRED)
 
     if(NOT EXISTS "${VCPKG_DIR}/scripts/buildsystems/vcpkg.cmake")
@@ -166,24 +198,48 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     # 3. 注入 toolchain 并安装（保持 HEAD 最新状态）
     set(CMAKE_TOOLCHAIN_FILE "${VCPKG_DIR}/scripts/buildsystems/vcpkg.cmake" CACHE FILEPATH "")
 
+
+    set(ENV{ANDROID_PLATFORM} "android-${ANDROID_NATIVE_API_LEVEL}")
     execute_process(
-        COMMAND "${VCPKG_DIR}/vcpkg.exe" install "ffmpeg[avcodec,avformat,swresample,swscale]:x64-windows-static-md"
+        COMMAND "${VCPKG_DIR}/vcpkg.exe" install "ffmpeg[avcodec,avformat,swresample,swscale]:${VCPKG_TARGET_TRIPLET}"
         WORKING_DIRECTORY "${VCPKG_DIR}"
         COMMAND_ECHO STDOUT
         COMMAND_ERROR_IS_FATAL ANY
     )
 
-    list(APPEND CMAKE_MODULE_PATH "${VCPKG_DIR}/installed/x64-windows-static-md/share/ffmpeg")
-
+    list(APPEND CMAKE_MODULE_PATH "${VCPKG_DIR}/installed/${VCPKG_TARGET_TRIPLET}/share/ffmpeg")
+    list(APPEND CMAKE_MODULE_PATH "${VCPKG_DIR}/installed/${VCPKG_TARGET_TRIPLET}/share/sdl2")
+    list(APPEND CMAKE_PREFIX_PATH "${VCPKG_DIR}/installed/${VCPKG_TARGET_TRIPLET}")
+    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
+    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH)
+    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
     find_package(FFMPEG MODULE REQUIRED)
     list(APPEND INCLUDE_DIRS ${FFMPEG_INCLUDE_DIRS})
-
+    # message(STATUS "FFMPEG_INCLUDE_DIRS=${FFMPEG_INCLUDE_DIRS}")
     target_link_libraries(${PROJECT_NAME} PRIVATE ${FFMPEG_LIBRARIES})
 
+    # message(STATUS "ANDROID_NDK_HOME = $ENV{ANDROID_NDK_HOME}")
+    # message(STATUS "ANDROID_NDK_HOME = ${ANDROID_NDK_HOME}")
+    execute_process(
+        COMMAND "${VCPKG_DIR}/vcpkg.exe" install "sdl2:${VCPKG_TARGET_TRIPLET}"
+        WORKING_DIRECTORY "${VCPKG_DIR}"
+        COMMAND_ECHO STDOUT
+        COMMAND_ERROR_IS_FATAL ANY
+    )
+
+   
+    find_package(SDL2 CONFIG REQUIRED)
+
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        SDL2::SDL2-static
+
+    )
 
 
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME STREQUAL "Android"))
+
+    string(TOLOWER "${CMAKE_SYSTEM_NAME}" SYSTEM_NAME_LOWER)
 
     if(NOT EXISTS "${FFMPEG_INSTALL_DIR}/lib/libavcodec.a")
 
@@ -259,7 +315,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
             --cross-prefix=${FFMPEG_CROSS_PREFIX}
             ${FFMPEG_CROSS_COMPILE}
             --sysroot=${CMAKE_SYSROOT}
-            --target-os=linux
+            --target-os=${SYSTEM_NAME_LOWER}
             # === 核心策略 ===
             --disable-everything
             --disable-autodetect # ← 防止隐式依赖

@@ -17,7 +17,7 @@ extern "C"
 }
 #endif
 #include "libgo.h"
-#include "Video.h"
+#include "video.h"
 #include "audio.h"
 #include "models.h"
 #include "waitgroup.h"
