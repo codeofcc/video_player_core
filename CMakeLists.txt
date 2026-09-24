@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-set(PROJECT_NAME "video_player_core")
+set(PROJECT_NAME "vpc")
 project(${PROJECT_NAME} LANGUAGES CXX C ASM)
 
 set(CMAKE_CXX_SCAN_FOR_MODULES ON)
@@ -43,12 +43,7 @@ include(FetchContent)
 
 set(FFI_PACKAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/_deps")
 
-# ── 下载 SDL2 ──
-git_clone_if_needed(
-    "https://github.com/libsdl-org/SDL.git"
-    "release-2.30.12"
-    "${FFI_PACKAGE_DIR}/SDL2"
-)
+
 
 # ── 下载 libgo ──
 git_clone_if_needed(
@@ -59,58 +54,6 @@ git_clone_if_needed(
 
 
 
-
-# ── SDL2 极简音频配置 ──
-set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-set(SDL_STATIC ON CACHE BOOL "" FORCE)
-set(SDL_TEST OFF CACHE BOOL "" FORCE)
-set(SDL2_DISABLE_SDL2MAIN ON CACHE BOOL "" FORCE)
-set(SDL2_DISABLE_UNINSTALL ON CACHE BOOL "" FORCE)
-# 音频核心（必须）
-set(SDL_AUDIO ON CACHE BOOL "" FORCE)
-
-# 音频依赖（必须）
-set(SDL_THREADS ON CACHE BOOL "" FORCE) # ⚠️ SDL 强制要求，不能关闭
-
-set(SDL_IME OFF CACHE BOOL "" FORCE) # 禁用输入法框架 (IBus/Fcitx)
-set(SDL_IBUS OFF CACHE BOOL "" FORCE) # 显式禁用 IBus
-set(SDL_FCITX OFF CACHE BOOL "" FORCE) # 显式禁用 Fcitx
-set(SDL_HIDAPI OFF CACHE BOOL "" FORCE)
-# set(SDL_JOYSTICK OFF CACHE BOOL "" FORCE)
-
-# 关闭其他不需要的模块
-foreach(_sdl_mod
-    # EVENTS
-    FILE
-    MISC
-    TIMERS
-    ATOMIC
-    VIDEO RENDER HAPTIC SENSOR TOUCH POWER #JOYSTICK
-    DIRECTX OPENGLES VULKAN LOADSO CPUINFO
-    VIRTUAL_JOYSTICK RENDER_D3D LIBUDEV HIDAPI_JOYSTICK
-    FILESYSTEM LOCALE
-    # 各种音频后端（仅保留 WASAPI）
-    ALSA PULSEAUDIO JACK PIPEWIRE ESD ARTS NAS SNDIO FUSIONSOUND
-    # 各种平台
-    X11 WAYLAND DIRECTFB KMSDRM COCOA
-    DISKAUDIO
-    DUMMYAUDIO
-    DUMMYVIDEO
-    HIDAPI
-    OPENGL
-    OFFSCREEN
-    XINPUT
-    ALTIVEC
-    CCACHE
-)
-    set(SDL_${_sdl_mod} OFF CACHE BOOL "" FORCE)
-endforeach()
-
-# FetchContent_Declare(
-#     SDL2
-#     SOURCE_DIR "${FFI_PACKAGE_DIR}/SDL2"
-# )
-# FetchContent_MakeAvailable(SDL2)
 
 
 # 在 MakeAvailable 之前设置 libgo 的选项（覆盖默认值）
@@ -147,7 +90,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_options(${PROJECT_NAME} PRIVATE -pthread)
 find_package(Threads REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads
-    android
+    # android
 )
 
 # ✅ 添加模块文件,导出的接口
@@ -162,8 +105,10 @@ target_sources(${PROJECT_NAME}
 
 message(STATUS "CMAKE_HOST_SYSTEM_NAME:${CMAKE_HOST_SYSTEM_NAME}")
 
+
+
 # ── 平台相关配置 ──
-if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows" AND (CMAKE_SYSTEM_NAME STREQUAL "Windows" OR CMAKE_SYSTEM_NAME STREQUAL "Android"))
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
 
 
     #    "-DCMAKE_SYSTEM_NAME=Android" ^
@@ -172,7 +117,7 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows" AND (CMAKE_SYSTEM_NAME STREQUAL "Wi
     # [        ]       "-DANDROID_PLATFORM=android-24" ^
     # [        ]       "-DANDROID_ABI=arm64-v8a" ^
     # [        ]       "-DCMAKE_ANDROID_ARCH_ABI=arm64-v8a" ^
-message(STATUS "ANDROID_ABI=${ANDROID_ABI}")
+    message(STATUS "ANDROID_ABI=${ANDROID_ABI}")
     if(ANDROID_ABI STREQUAL "arm64-v8a")
         set(VCPKG_TARGET_TRIPLET "arm64-android")
     elseif(ANDROID_ABI STREQUAL "armeabi-v7a")
@@ -227,7 +172,7 @@ message(STATUS "ANDROID_ABI=${ANDROID_ABI}")
         COMMAND_ERROR_IS_FATAL ANY
     )
 
-   
+
     find_package(SDL2 CONFIG REQUIRED)
 
     target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -237,12 +182,75 @@ message(STATUS "ANDROID_ABI=${ANDROID_ABI}")
 
 
 
-elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME STREQUAL "Android"))
+else()
 
     string(TOLOWER "${CMAKE_SYSTEM_NAME}" SYSTEM_NAME_LOWER)
+    # ── 下载 SDL2 ──
+    git_clone_if_needed(
+        "https://github.com/libsdl-org/SDL.git"
+        "release-2.30.12"
+        "${FFI_PACKAGE_DIR}/SDL2"
+    )
 
+    # ── SDL2 极简音频配置 ──
+    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+    set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    set(SDL_TEST OFF CACHE BOOL "" FORCE)
+    set(SDL2_DISABLE_SDL2MAIN ON CACHE BOOL "" FORCE)
+    set(SDL2_DISABLE_UNINSTALL ON CACHE BOOL "" FORCE)
+    # 音频核心（必须）
+    set(SDL_AUDIO ON CACHE BOOL "" FORCE)
+
+    # 音频依赖（必须）
+    set(SDL_THREADS ON CACHE BOOL "" FORCE) # ⚠️ SDL 强制要求，不能关闭
+
+    set(SDL_IME OFF CACHE BOOL "" FORCE) # 禁用输入法框架 (IBus/Fcitx)
+    set(SDL_IBUS OFF CACHE BOOL "" FORCE) # 显式禁用 IBus
+    set(SDL_FCITX OFF CACHE BOOL "" FORCE) # 显式禁用 Fcitx
+    set(SDL_HIDAPI OFF CACHE BOOL "" FORCE)
+    # set(SDL_JOYSTICK OFF CACHE BOOL "" FORCE)
+
+    # 关闭其他不需要的模块
+    foreach(_sdl_mod
+        # EVENTS
+        FILE
+        MISC
+        TIMERS
+        ATOMIC
+        VIDEO RENDER HAPTIC SENSOR TOUCH POWER #JOYSTICK
+        DIRECTX OPENGLES VULKAN LOADSO CPUINFO
+        VIRTUAL_JOYSTICK RENDER_D3D LIBUDEV HIDAPI_JOYSTICK
+        FILESYSTEM LOCALE
+        # 各种音频后端（仅保留 WASAPI）
+        ALSA PULSEAUDIO JACK PIPEWIRE ESD ARTS NAS SNDIO FUSIONSOUND
+        # 各种平台
+        X11 WAYLAND DIRECTFB KMSDRM COCOA
+        DISKAUDIO
+        DUMMYAUDIO
+        DUMMYVIDEO
+        HIDAPI
+        OPENGL
+        OFFSCREEN
+        XINPUT
+        ALTIVEC
+        CCACHE
+    )
+        set(SDL_${_sdl_mod} OFF CACHE BOOL "" FORCE)
+    endforeach()
+
+    FetchContent_Declare(
+        SDL2
+        SOURCE_DIR "${FFI_PACKAGE_DIR}/SDL2"
+    )
+    FetchContent_MakeAvailable(SDL2)
+
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        SDL2::SDL2
+    )
+
+
+    #ffmpeg
     if(NOT EXISTS "${FFMPEG_INSTALL_DIR}/lib/libavcodec.a")
-
         message(STATUS "FFmpeg configuration 3: CMAKE_C_COMPILER=${CMAKE_C_COMPILER} CMAKE_C_COMPILER_TARGET=${CMAKE_C_COMPILER_TARGET} CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} CMAKE_CXX_COMPILER_TARGET=${CMAKE_CXX_COMPILER_TARGET} CMAKE_SYSTEM_NAME =${CMAKE_SYSTEM_NAME}, CPU=${CMAKE_SYSTEM_PROCESSOR},")
 
         include(ProcessorCount)
@@ -262,7 +270,7 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND (CMAKE_SYSTEM_NAME STREQUAL "
             "${FFMPEG_SOURCE_DIR}"
         )
 
-
+ message(STATUS "[OS] Target OS matches host: ${CMAKE_HOST_SYSTEM_PROCESSOR} ${CMAKE_SYSTEM_PROCESSOR}")
         if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL CMAKE_SYSTEM_PROCESSOR)
             message(STATUS "[OS] Target OS matches host: ${CMAKE_SYSTEM_NAME}")
             set(FFMPEG_CROSS_COMPILE "--disable-cross-compile")
@@ -380,9 +388,7 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND (CMAKE_SYSTEM_NAME STREQUAL "
         ${FFMPEG_INSTALL_DIR}/lib/libavutil.a
     )
 
-    # Linux 配置占位
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    message(STATUS "macOS build")
+
 endif()
 
 
